@@ -1,0 +1,330 @@
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <string>
+#include <limits>
+using namespace std;
+
+const int SUBJECTS = 5;
+
+// Student class
+class Student {
+private:
+    string name;
+    int rollNo;
+    float marks[SUBJECTS];
+    float total;
+    float percentage;
+    char grade;
+
+public:
+    // Default constructor
+    Student() {
+        name = "";
+        rollNo = 0;
+        total = 0;
+        percentage = 0;
+        grade = 'F';
+
+        for (int i = 0; i < SUBJECTS; i++)
+            marks[i] = 0;
+    }
+
+    // Input student details
+    void inputDetails() {
+        cout << "Enter student name: ";
+        getline(cin >> ws, name);
+
+        cout << "Enter roll number: ";
+        cin >> rollNo;
+
+        for (int i = 0; i < SUBJECTS; i++) {
+            do {
+                cout << "Enter marks in Subject "
+                     << i + 1 << " (0-100): ";
+                cin >> marks[i];
+
+                if (cin.fail()) {
+                    cin.clear();
+                    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                    marks[i] = -1;
+                }
+
+                if (marks[i] < 0 || marks[i] > 100)
+                    cout << "Invalid marks! Try again.\n";
+
+            } while (marks[i] < 0 || marks[i] > 100);
+        }
+
+        calculateResult();
+    }
+
+    // Calculate total, percentage and grade
+    void calculateResult() {
+        total = 0;
+
+        for (int i = 0; i < SUBJECTS; i++) {
+            total += marks[i];
+        }
+
+        percentage = total / SUBJECTS;
+
+        if (percentage >= 90)
+            grade = 'A';
+        else if (percentage >= 80)
+            grade = 'B';
+        else if (percentage >= 70)
+            grade = 'C';
+        else if (percentage >= 60)
+            grade = 'D';
+        else
+            grade = 'F';
+    }
+
+    // Display individual report card
+    void displayReport() const {
+        cout << "\n========== REPORT CARD ==========\n";
+        cout << "Name       : " << name << endl;
+        cout << "Roll Number: " << rollNo << endl;
+
+        for (int i = 0; i < SUBJECTS; i++) {
+            cout << "Subject " << i + 1
+                 << "  : " << marks[i] << "/100\n";
+        }
+
+        cout << "---------------------------------\n";
+        cout << "Total      : " << total << "/500\n";
+        cout << "Percentage : " << percentage << "%\n";
+        cout << "Grade      : " << grade << endl;
+        cout << "=================================\n";
+    }
+
+    // Get roll number
+    int getRollNo() const {
+        return rollNo;
+    }
+
+    // Save student record to file
+    void saveToFile(ofstream &file) const {
+        file << quoted(name) << " "
+             << rollNo << " ";
+
+        for (int i = 0; i < SUBJECTS; i++)
+            file << marks[i] << " ";
+
+        file << endl;
+    }
+
+    // Read student record from file
+    bool loadFromFile(ifstream &file) {
+        if (!(file >> quoted(name) >> rollNo))
+            return false;
+
+        for (int i = 0; i < SUBJECTS; i++) {
+            if (!(file >> marks[i]))
+                return false;
+        }
+
+        calculateResult();
+        return true;
+    }
+};
+
+// Grade Management System class
+class GradeManagementSystem {
+private:
+    Student students[100];
+    int count;
+
+    // Save all records
+    void saveRecords() {
+        ofstream file("student_records.txt");
+
+        if (!file) {
+            cout << "Error saving records!\n";
+            return;
+        }
+
+        for (int i = 0; i < count; i++) {
+            students[i].saveToFile(file);
+        }
+
+        file.close();
+        cout << "Records saved successfully!\n";
+    }
+
+    // Load saved records
+    void loadRecords() {
+        ifstream file("student_records.txt");
+
+        if (!file)
+            return;
+
+        count = 0;
+
+        while (count < 100 &&
+               students[count].loadFromFile(file)) {
+            count++;
+        }
+
+        file.close();
+    }
+
+    // Find student by roll number
+    int findStudent(int roll) const {
+        for (int i = 0; i < count; i++) {
+            if (students[i].getRollNo() == roll)
+                return i;
+        }
+        return -1;
+    }
+
+public:
+    // Constructor
+    GradeManagementSystem() {
+        count = 0;
+        loadRecords();
+    }
+
+    // Add student
+    void addStudent() {
+        if (count >= 100) {
+            cout << "Student limit reached!\n";
+            return;
+        }
+
+        Student s;
+        s.inputDetails();
+
+        if (findStudent(s.getRollNo()) != -1) {
+            cout << "Roll number already exists!\n";
+            return;
+        }
+
+        students[count] = s;
+        count++;
+
+        saveRecords();
+        cout << "Student added successfully!\n";
+    }
+
+    // View student report
+    void viewStudent() const {
+        int roll;
+
+        cout << "Enter roll number: ";
+        cin >> roll;
+
+        int index = findStudent(roll);
+
+        if (index == -1)
+            cout << "Student not found!\n";
+        else
+            students[index].displayReport();
+    }
+
+    // Edit student record
+    void editStudent() {
+        int roll;
+
+        cout << "Enter roll number to edit: ";
+        cin >> roll;
+
+        int index = findStudent(roll);
+
+        if (index == -1) {
+            cout << "Student not found!\n";
+            return;
+        }
+
+        cout << "\nEnter updated details:\n";
+        students[index].inputDetails();
+
+        // Do not allow duplicate roll numbers
+        for (int i = 0; i < count; i++) {
+            if (i != index &&
+                students[i].getRollNo() ==
+                students[index].getRollNo()) {
+                cout << "Duplicate roll number! "
+                     << "Please edit again.\n";
+                return;
+            }
+        }
+
+        saveRecords();
+        cout << "Record updated successfully!\n";
+    }
+
+    // Display all student records
+    void viewAllStudents() const {
+        if (count == 0) {
+            cout << "No student records available.\n";
+            return;
+        }
+
+        cout << "\n========== ALL STUDENTS ==========\n";
+
+        for (int i = 0; i < count; i++) {
+            students[i].displayReport();
+        }
+    }
+
+    // Main menu
+    void menu() {
+        int choice;
+
+        do {
+            cout << "\n================================\n";
+            cout << " STUDENT GRADE MANAGEMENT SYSTEM\n";
+            cout << "================================\n";
+            cout << "1. Add Student\n";
+            cout << "2. View Student Report\n";
+            cout << "3. Edit Student Record\n";
+            cout << "4. View All Students\n";
+            cout << "5. Save Records\n";
+            cout << "6. Exit\n";
+            cout << "Enter your choice: ";
+
+            cin >> choice;
+
+            switch (choice) {
+                case 1:
+                    addStudent();
+                    break;
+
+                case 2:
+                    viewStudent();
+                    break;
+
+                case 3:
+                    editStudent();
+                    break;
+
+                case 4:
+                    viewAllStudents();
+                    break;
+
+                case 5:
+                    saveRecords();
+                    break;
+
+                case 6:
+                    saveRecords();
+                    cout << "Thank you for using the system!\n";
+                    break;
+
+                default:
+                    cout << "Invalid choice! Try again.\n";
+            }
+
+        } while (choice != 6);
+    }
+};
+
+// Main function
+int main() {
+    GradeManagementSystem system;
+    system.menu();
+
+    return 0;
+}
